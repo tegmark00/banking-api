@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "payment-service"
+version = "0.1.0"
+description = ""
+authors = ["Mark B. <mark.bobkov.13@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.110.0"
+uvicorn = "^0.28.0"
+aiokafka = "^0.10.0"
+pydantic-settings = "^2.2.1"
+sqlalchemy = "^2.0.28"
+alembic = "^1.13.1"
+aiosqlite = "^0.20.0"
+greenlet = "^3.0.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

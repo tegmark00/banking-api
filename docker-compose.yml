@@ -1,0 +1,127 @@
+version: '3'
+
+
+services:
+
+  account-service:
+    build:
+      context: account-service/
+      dockerfile: Dockerfile
+    command: bash -c "
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    env_file:
+      - account-service/.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DB_URL: "sqlite+aiosqlite:///data/accounts.db"
+    volumes:
+      - type: bind
+        source: ./_data/
+        target: /code/data/
+    networks:
+      - kafka-net
+
+  payment-service:
+    build:
+      context: payment-service/
+      dockerfile: Dockerfile
+    command: bash -c "
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    env_file:
+      - payment-service/.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DB_URL: "sqlite+aiosqlite:///data/payments.db"
+    volumes:
+      - type: bind
+        source: ./_data/
+        target: /code/data/
+    networks:
+      - kafka-net
+
+  report-service:
+    build:
+      context: report-service/
+      dockerfile: Dockerfile
+    command: bash -c "
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8002:8000"
+    env_file:
+      - report-service/.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DB_URL: "sqlite+aiosqlite:///data/reports.db"
+    volumes:
+      - type: bind
+        source: ./_data/
+        target: /code/data/
+    networks:
+      - kafka-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - kafka-net
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka:9092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    networks:
+      - kafka-net
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:latest
+    depends_on:
+      - kafka
+      - zookeeper
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka:29092
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+    networks:
+      - kafka-net
+
+
+networks:
+  kafka-net:
+    driver: bridge
